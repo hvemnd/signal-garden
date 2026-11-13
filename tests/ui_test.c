@@ -10033,6 +10033,7 @@ static int test_ux18(void)
     return bad;
 }
 
+#ifndef UI_TEST_NO_MAIN                                  /* (tests/sg_ui_test.c: its own main) */
 int main(void)
 {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -10132,4 +10133,5 @@ int main(void)
     printf(bad ? "ui: %d FAILED\n" : "ui: all passed\n", bad);
     return bad ? 1 : 0;
 }
+#endif
 #endif

@@ -1606,6 +1606,7 @@ static void style_apply(void)
 }
 
 static void ui_draw_page(uint32_t counting);
+static void sg_draw(void);                             /* (sg_ui.c) */
 static void ui_draw(void)
 {
     static uint8_t counting;
@@ -1622,6 +1623,11 @@ static void ui_draw(void)
 }
 static void ui_draw_page(uint32_t counting)
 {
+    if (sg_on && !ui.uboot) {                          /* SIGNAL GARDEN has the screen (sg_ui.c) */
+        sg_draw();
+        ui.force = 0;
+        return;
+    }
     if (ui.uboot) {
         draw_uboot();
         draw_head();

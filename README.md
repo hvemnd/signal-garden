@@ -1,3 +1,11 @@
+# SIGNAL GARDEN (on Felucca)
+
+This repository is **SIGNAL GARDEN**, an ear trainer for the M-VAVE FM-1. It's a modified version of Felucca: if you power on normally you get Felucca, and if you hold F3 + F#3 at power-on you get station 88.1, NOTE ID. To install, use it, and see what's next, read **[docs/SIGNAL_GARDEN.md](docs/SIGNAL_GARDEN.md)**. Builds are on this repository's Releases page.
+
+SIGNAL GARDEN is a third-party modification. Please report problems with it here, **not** to Felucca's issue tracker. Felucca's own README follows, unchanged.
+
+---
+
 # Felucca
 
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)

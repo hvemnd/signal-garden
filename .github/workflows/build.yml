@@ -1,0 +1,107 @@
+# Builds SIGNAL GARDEN (Felucca + the ear trainer) for the M-VAVE FM-1 and publishes the installable .fwsc.
+#   push to main      -> the rolling pre-release "dev" (signal-garden-dev.fwsc), replaced on every push
+#   tag sg-vX.Y.Z     -> a release with signal-garden-X.Y.Z.fwsc
+#   any run           -> the package, the app and the test screens as a workflow artifact
+# The JieLi toolchain and the AC79 SDK files are downloaded here (they are not in this repository) and cached.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["sg-v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SDK_TAG: AC79NN_SDK_V1.2.1_2023-12-13
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python packages
+        run: pip install Pillow fonttools mido
+
+      - name: Cache the JieLi toolchain
+        id: tc
+        uses: actions/cache@v4
+        with:
+          path: ~/.jieli
+          key: jieli-linux-toolchain-v1
+
+      - name: JieLi toolchain (clang 4.0.1 for pi32v2)
+        if: steps.tc.outputs.cache-hit != 'true'
+        run: sh tools/get_toolchain.sh
+
+      - name: Cache the AC79 SDK files
+        id: sdk
+        uses: actions/cache@v4
+        with:
+          path: ~/fw-AC79_AIoT_SDK
+          key: ac79-sdk-${{ env.SDK_TAG }}
+
+      - name: AC79 SDK (only cpu/wl82/tools is used)
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          url=https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git
+          if git clone --depth 1 --filter=blob:none --sparse --branch "$SDK_TAG" "$url" ~/fw-AC79_AIoT_SDK; then
+            git -C ~/fw-AC79_AIoT_SDK sparse-checkout set cpu/wl82/tools
+          else
+            rm -rf ~/fw-AC79_AIoT_SDK
+            git clone --depth 1 --branch "$SDK_TAG" "$url" ~/fw-AC79_AIoT_SDK
+          fi
+          ls -l ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/uboot.boot ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/cfg_tool.bin
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Tests (Felucca's suite and SIGNAL GARDEN's)
+        run: sh tests/run_tests.sh
+
+      - name: Name the package
+        id: pkg
+        run: |
+          set -e
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then v="${GITHUB_REF_NAME#sg-v}"; else v=dev; fi
+          mkdir -p dist
+          cp build/felucca.fwsc "dist/signal-garden-$v.fwsc"
+          cp build/felucca.bin "dist/signal-garden-$v-app.bin"
+          (cd dist && sha256sum * > SHA256SUMS)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signal-garden-${{ steps.pkg.outputs.version }}
+          path: |
+            dist/
+            build/sg/*.ppm
+
+      - name: Publish the rolling "dev" pre-release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete dev --yes --cleanup-tag || true
+          gh release create dev dist/* --prerelease --target "$GITHUB_SHA" --title "SIGNAL GARDEN (dev build)" \
+            --notes "Built from ${GITHUB_SHA::7}. Install with the Felucca web installer's local mode or tools/fm1_install.py (see docs/SIGNAL_GARDEN.md). Installing firmware is at your own risk: M-VAVE's updater restores the official firmware."
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --title "SIGNAL GARDEN ${{ steps.pkg.outputs.version }}" \
+            --notes-file docs/SIGNAL_GARDEN.md

@@ -401,6 +401,7 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
  * rest: the root's keys lit, the scale's at the mid level, the others glowing; the keys held and playing as ever
  * (lit, INV dark). Each picture is built off-line and copied one byte per column, the
  * glow first: an LED going from lit to dim never has a dark frame */
+static void sg_leds(void);                              /* (sg_ui.c) */
 static void ui_leds(void)
 {
     uint8_t nl[FM1_NCOL] = {0}, nd[FM1_NCOL] = {0}, own[FM1_NCOL] = {0}, og[FM1_NCOL] = {0}, nb[FM1_NCOL] = {0};
@@ -411,6 +412,10 @@ static void ui_leds(void)
     static uint8_t ready;
     if (idle_leds() || fm1_led_anim_on())              /* the idle animation, the power-on sweep have them (main.c */
         return;                                         /* boot_leds) */
+    if (sg_on) {                                        /* SIGNAL GARDEN's lights (sg_ui.c) */
+        sg_leds();
+        return;
+    }
     if (!ready) {
         led_pos_init();
         ready = 1;
@@ -1508,6 +1513,8 @@ static void ui_notices(void)
     }
 }
 
+static int sg_boot_check(void);                         /* (sg_ui.c) */
+static void sg_input(uint32_t pressed, uint32_t notes);
 static void ui_input(void)
 {
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
@@ -1535,6 +1542,10 @@ static void ui_input(void)
     follow_poll();                                      /* (1.6, #242: SEQ's roll follows the play position) */
     if (scr_input(pressed, notes))                      /* MENU > SCREEN OFF: dark, or the wake gesture: swallowed */
         return;                                         /* (before the buttons' timers: no tap or hold after it) */
+    if (sg_on || sg_boot_check()) {                     /* SIGNAL GARDEN (sg_ui.c): F3 + F#3 held at power-on */
+        sg_input(pressed, notes);
+        return;
+    }
     if (mom.n && !mom_down()) {                         /* MOMENTARY: LFO let go (or the menu, a layer ..): back */
         mom_restore();
         ui_message("BACK");
@@ -1949,3 +1960,5 @@ timeout:
     ui.force = 1;
     ui_message("SETUP CANCELLED");
 }
+
+#include "sg_ui.c"                                      /* SIGNAL GARDEN: the ear trainer's screens and input */

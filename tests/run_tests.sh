@@ -263,6 +263,15 @@ EOF
         "$OUT/usb_desc_test"
 done
 
+# SIGNAL GARDEN (tests/sg_test.c, tests/sg_ui_test.c): the learning engine (SM-2 by sessions, the session builder's
+#                   due / confusion / new mix, misses brought back, the why and trap lines), then the mode on the UI stubs
+#                   (the power-on gesture, a whole first session, the notes asked for, the summary, the report, HOME out)
+$CC -O1 -o "$OUT/sg_test" tests/sg_test.c
+run "SIGNAL GARDEN: learning engine" "$OUT/sg_test"
+$CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/sg_ui_test" tests/sg_ui_test.c -lm
+mkdir -p build/sg
+run "SIGNAL GARDEN: the mode on the UI stubs, screens in build/sg" env SG_SCREEN_DIR=build/sg "$OUT/sg_ui_test"
+
 [ -f build/felucca.fwsc ] || { echo "run ./build.sh first"; exit 1; }
 
 $CC -DOWN_PKG=1 -o "$OUT/ota_test" tests/ota_test.c
